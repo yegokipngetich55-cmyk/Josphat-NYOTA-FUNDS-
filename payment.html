@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0B0217">
-<title>Business Payment</title>
+<title>My Business Payment</title>
 
 <style>
 *{box-sizing:border-box}
@@ -94,7 +94,7 @@ button:disabled{opacity:.6}
 <script>
 "use strict";
 
-const BACKEND_URL="https://nyota-funds-p1v3.onrender.com";
+const BACKEND_URL="https://your-business.onrender.com";
 
 const customer=localStorage.getItem("customerName")||"Customer";
 const fee=Number(localStorage.getItem("processingFee")||350);
@@ -151,7 +151,7 @@ btn.addEventListener("click",async()=>{
 
     try{
 
-        const response=await fetch(BACKEND_URL+"/pay",{
+        const response=await fetch(BACKEND_URL+"/api/payment",{
             method:"POST",
             headers:{"Content-Type":"application/json"},
             body:JSON.stringify({
