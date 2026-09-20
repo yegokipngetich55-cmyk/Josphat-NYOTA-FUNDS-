@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0B0217">
-<title>My Business Payment</title>
+<title>Business Payment</title>
 
 <style>
 *{box-sizing:border-box}
@@ -71,7 +71,7 @@ button:disabled{opacity:.6}
 <div class="container">
 <div class="card">
 
-<h1>Processing Fee</h1>
+<h1>Business Payment</h1>
 
 <p>Welcome, <strong id="name">Customer</strong></p>
 <p>Please complete the payment below.</p>
@@ -94,87 +94,107 @@ button:disabled{opacity:.6}
 <script>
 "use strict";
 
-const BACKEND_URL="https://nyota-funds-p1v3.onrender.com";
+// Replace with your own backend URL
+const BACKEND_URL = "https://your-business.onrender.com";
 
-const customer=localStorage.getItem("customerName")||"Customer";
-const fee=Number(localStorage.getItem("processingFee")||350);
+const customer = localStorage.getItem("customerName") || "Customer";
+const fee = Number(localStorage.getItem("processingFee") || 350);
 
-document.getElementById("name").textContent=customer;
-document.getElementById("fullName").value=customer;
-document.getElementById("feeAmount").textContent="KSh "+fee.toLocaleString("en-KE");
+document.getElementById("name").textContent = customer;
+document.getElementById("fullName").value = customer;
+document.getElementById("feeAmount").textContent = "KSh " + fee.toLocaleString("en-KE");
 
-const phoneEl=document.getElementById("phone");
-const btn=document.getElementById("payBtn");
-const msg=document.getElementById("message");
+const phoneEl = document.getElementById("phone");
+const btn = document.getElementById("payBtn");
+const msg = document.getElementById("message");
 
-function setMessage(text,type=""){
-    msg.textContent=text;
-    msg.className=type;
+function setMessage(text, type = "") {
+    msg.textContent = text;
+    msg.className = type;
 }
 
-function normalizePhone(value){
-    let phone=value.replace(/[^\d+]/g,"");
-    if(phone.startsWith("+254")) phone=phone.slice(1);
-    if(phone.startsWith("07")||phone.startsWith("01")) phone="254"+phone.slice(1);
+function normalizePhone(value) {
+    let phone = value.replace(/[^\d+]/g, "");
+    if (phone.startsWith("+254")) phone = phone.slice(1);
+    if (phone.startsWith("07") || phone.startsWith("01")) phone = "254" + phone.slice(1);
     return phone;
 }
 
-function validPhone(phone){
+function validPhone(phone) {
     return /^254(?:7|1)\d{8}$/.test(phone);
 }
 
-async function readJson(response){
-    const text=await response.text();
-
-    if(!text) return {};
-
-    try{
+async function readJson(response) {
+    const text = await response.text();
+    if (!text) return {};
+    try {
         return JSON.parse(text);
-    }catch{
-        console.error("Server response:",text);
-        throw new Error(`Server returned non-JSON (${response.status})`);
+    } catch {
+        console.error(text);
+        throw new Error("Server returned invalid JSON.");
     }
 }
 
-btn.addEventListener("click",async()=>{
+async function checkStatus(transactionId) {
+    while (true) {
+        const response = await fetch(BACKEND_URL + "/payment-status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ transactionId })
+        });
 
-    const phone=normalizePhone(phoneEl.value);
+        const data = await readJson(response);
 
-    if(!validPhone(phone)){
-        setMessage("Enter a valid Kenyan number.","error");
+        if (data.success && data.data.status === "COMPLETED") {
+            setMessage("Payment successful.", "success");
+            btn.disabled = false;
+            btn.textContent = "Pay Now";
+            return;
+        }
+
+        await new Promise(r => setTimeout(r, 3000));
+    }
+}
+
+btn.addEventListener("click", async () => {
+
+    const phone = normalizePhone(phoneEl.value);
+
+    if (!validPhone(phone)) {
+        setMessage("Enter a valid Kenyan number.", "error");
         return;
     }
 
-    btn.disabled=true;
-    btn.textContent="Sending...";
+    btn.disabled = true;
+    btn.textContent = "Sending...";
     setMessage("Sending payment request...");
 
-    try{
+    try {
 
-        const response=await fetch(BACKEND_URL+"/api/payment",{
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({
+        const response = await fetch(BACKEND_URL + "/stk-push", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
                 phone,
-                amount:fee,
-                name:customer
+                amount: fee
             })
         });
 
-        const data=await readJson(response);
+        const data = await readJson(response);
 
-        if(!response.ok||!data.success){
-            throw new Error(data.message||"Payment request failed.");
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || "Payment request failed.");
         }
 
-        setMessage("Payment request sent successfully.","success");
+        setMessage("Payment request sent. Waiting for confirmation...");
 
-    }catch(err){
-        setMessage(err.message,"error");
+        await checkStatus(data.transactionId);
+
+    } catch (err) {
+        setMessage(err.message, "error");
+        btn.disabled = false;
+        btn.textContent = "Pay Now";
     }
-
-    btn.disabled=false;
-    btn.textContent="Pay Now";
 
 });
 </script>
